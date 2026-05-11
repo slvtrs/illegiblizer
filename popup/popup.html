@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Illegiblizer</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">
+        <span class="logo-icon">◈</span>
+        <span class="logo-text">Illegiblizer</span>
+      </div>
+      <label class="toggle" title="Enable / disable">
+        <input type="checkbox" id="toggle" />
+        <span class="slider"></span>
+      </label>
+    </header>
+
+    <div class="status-card" id="statusCard">
+      <div class="status-label" id="statusLabel">Paused</div>
+      <div class="status-sub" id="statusSub">Enable to start scrambling</div>
+    </div>
+
+    <section class="section">
+      <div class="section-title">Platforms</div>
+      <div class="platform-grid">
+        <label class="platform-chip" data-platform="google">
+          <input type="checkbox" id="platform-google" />
+          <span class="platform-icon google">G</span>
+          <span>Google</span>
+        </label>
+        <label class="platform-chip" data-platform="youtube">
+          <input type="checkbox" id="platform-youtube" />
+          <span class="platform-icon youtube">▶</span>
+          <span>YouTube</span>
+        </label>
+        <label class="platform-chip" data-platform="reddit">
+          <input type="checkbox" id="platform-reddit" />
+          <span class="platform-icon reddit">●</span>
+          <span>Reddit</span>
+        </label>
+        <label class="platform-chip" data-platform="instagram">
+          <input type="checkbox" id="platform-instagram" />
+          <span class="platform-icon instagram">◉</span>
+          <span>Insta</span>
+        </label>
+        <label class="platform-chip" data-platform="x">
+          <input type="checkbox" id="platform-x" />
+          <span class="platform-icon x">𝕏</span>
+          <span>X</span>
+        </label>
+        <label class="platform-chip" data-platform="tiktok">
+          <input type="checkbox" id="platform-tiktok" />
+          <span class="platform-icon tiktok">♪</span>
+          <span>TikTok</span>
+        </label>
+        <label class="platform-chip" data-platform="amazon">
+          <input type="checkbox" id="platform-amazon" />
+          <span class="platform-icon amazon">A</span>
+          <span>Amazon</span>
+        </label>
+        <label class="platform-chip" data-platform="pinterest">
+          <input type="checkbox" id="platform-pinterest" />
+          <span class="platform-icon pinterest">P</span>
+          <span>Pins</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        Recent searches
+        <span class="count-badge" id="countBadge">0 today</span>
+      </div>
+      <ul class="recent-list" id="recentList">
+        <li class="empty-state">No searches yet</li>
+      </ul>
+    </section>
+
+    <footer>
+      <button class="btn-secondary" id="searchNow">Search now</button>
+      <button class="btn-ghost" id="clearCount">Reset count</button>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
