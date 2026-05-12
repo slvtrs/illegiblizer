@@ -306,3 +306,19 @@ footer {
 }
 
 .btn-ghost:hover { border-color: var(--text-dim); color: var(--text); }
+
+/* ── Links ───────────────────────────────── */
+.links {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.links a {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.links a:hover { color: var(--text); }

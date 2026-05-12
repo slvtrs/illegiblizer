@@ -12,22 +12,32 @@
     return null;
   };
 
-  const silenceVideo = (video) => { video.muted = true; video.volume = 0; };
+  // Grab the real native setters before defining our interceptors
+  const proto     = HTMLMediaElement.prototype;
+  const setMuted  = Object.getOwnPropertyDescriptor(proto, 'muted').set;
+  const setVolume = Object.getOwnPropertyDescriptor(proto, 'volume').set;
+
+  const silenceVideo = (video) => {
+    // Actually mute via the native setter
+    setMuted.call(video, true);
+    setVolume.call(video, 0);
+    // Override the instance's own property so any future JS assignment
+    // (including YouTube's player) is silently redirected back to silence
+    try {
+      Object.defineProperty(video, 'muted',  { get: () => true, set: () => setMuted.call(video, true),  configurable: true });
+      Object.defineProperty(video, 'volume', { get: () => 0,    set: () => setVolume.call(video, 0),    configurable: true });
+    } catch (_) {}
+  };
 
   const forceMute = (video) => {
     video.defaultMuted = true;
     silenceVideo(video);
-    // Re-mute if YouTube's player restores volume or unmutes
-    video.addEventListener('volumechange', () => {
-      if (!video.muted || video.volume > 0) silenceVideo(video);
-    });
     video.play().catch(() => {
       chrome.runtime.sendMessage({ type: 'FOREGROUND_TAB' });
     });
   };
 
-  // YouTube's player initialises asynchronously and can override muted state
-  // after injection — re-silence at 1 s and 4 s as a safety net
+  // Belt-and-suspenders: re-silence at 1 s and 4 s for late player init
   for (const ms of [1000, 4000]) {
     setTimeout(() => document.querySelectorAll('video').forEach(silenceVideo), ms);
   }

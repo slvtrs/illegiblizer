@@ -57,13 +57,22 @@ async function updateIcon() {
   const { nextSearchAt, lastCycleAt, enabled } = await chrome.storage.local.get({
     nextSearchAt: null, lastCycleAt: null, enabled: false,
   });
+
+  if (!enabled) {
+    if (iconTimerId) { clearInterval(iconTimerId); iconTimerId = null; }
+    try {
+      await chrome.action.setIcon({ path: { 16: 'icons/icon16.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' } });
+    } catch (_) {}
+    return;
+  }
+
   let progress = 0;
-  if (enabled && nextSearchAt && lastCycleAt) {
+  if (nextSearchAt && lastCycleAt) {
     progress = Math.max(0, Math.min(1, (nextSearchAt - Date.now()) / (nextSearchAt - lastCycleAt)));
   }
   try {
     await chrome.action.setIcon({
-      imageData: { 16: drawRingIcon(16, progress, enabled), 32: drawRingIcon(32, progress, enabled) },
+      imageData: { 16: drawRingIcon(16, progress, true), 32: drawRingIcon(32, progress, true) },
     });
   } catch (_) {}
 }
@@ -111,22 +120,47 @@ async function scheduleNext() {
 
 // ── Tab readiness ─────────────────────────────────────────────
 
-// Polls until the tab reaches 'complete', times out, or disappears.
-// Polling via chrome.tabs.get() keeps the MV3 service worker alive —
-// setTimeout alone can silently stall when the worker is suspended.
-async function waitForTabComplete(tabId, timeout = 5000) {
-  const deadline = Date.now() + timeout;
-  while (Date.now() < deadline) {
-    let tab;
-    try { tab = await chrome.tabs.get(tabId); } catch { return; }
-    if (tab.status === 'complete') return;
-    await new Promise(r => setTimeout(r, 150));
-  }
+// Resolves when the tab completes, is closed, or times out.
+// Combines event listeners (which wake the service worker instantly) with a
+// polling loop (which keeps the service worker alive between events so the
+// timeout actually fires instead of stalling indefinitely).
+function waitForTabComplete(tabId, timeout = 5000) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      chrome.tabs.onRemoved.removeListener(onRemoved);
+      resolve();
+    };
+
+    const onUpdated = (id, info) => { if (id === tabId && info.status === 'complete') finish(); };
+    const onRemoved = (id)       => { if (id === tabId) finish(); };
+
+    chrome.tabs.onUpdated.addListener(onUpdated);
+    chrome.tabs.onRemoved.addListener(onRemoved);
+
+    // Polling loop: keeps the service worker alive AND enforces the timeout
+    (async () => {
+      const deadline = Date.now() + timeout;
+      while (!done && Date.now() < deadline) {
+        let tab;
+        try { tab = await chrome.tabs.get(tabId); } catch { finish(); return; }
+        if (tab.status === 'complete') { finish(); return; }
+        await new Promise(r => setTimeout(r, 150));
+      }
+      finish();
+    })();
+  });
 }
 
 // ── Main cycle ────────────────────────────────────────────────
 
+let currentCycleId = 0;
+
 async function runCycle({ force = false } = {}) {
+  const cycleId = ++currentCycleId;
   const stored = await chrome.storage.local.get({
     enabled: false,
     platforms: DEFAULT_PLATFORM_SETTINGS,
@@ -160,6 +194,8 @@ async function runCycle({ force = false } = {}) {
   const tabCloseTimes = {};
 
   for (const platform of enabledPlatforms) {
+    if (cycleId !== currentCycleId) return; // STOP was called — abort
+
     const config = PLATFORMS[platform];
     let tabId, windowId;
 
@@ -258,6 +294,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   }
 
   if (msg.type === 'STOP') {
+    currentCycleId++; // invalidates any in-progress runCycle loop
     chrome.power.releaseKeepAwake();
     (async () => {
       chrome.alarms.clearAll();
