@@ -6,7 +6,7 @@ Become anti-predictable.
 
 ## What is it
 
-A Chrome extension that quietly scrambles your search and browsing history by continuously searching random topics in the background and burrying your real behavior in a sea of noise.
+A Chrome extension that quietly scrambles your search and browsing history by continuously searching random topics in the background and burying your real behavior in a sea of noise.
 
 When active, it opens tabs across your enabled platforms every ~60 seconds, browses like a human (scrolling, clicking into results, watching videos), then closes them silently.
 
