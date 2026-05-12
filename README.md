@@ -1,6 +1,18 @@
 # Illegiblizer
 
-A Chrome extension that quietly scrambles your search and browsing history by continuously searching random topics in the background — making your real interests harder for platforms to profile.
+Be nonquantifiable.
+
+Be unpredictable.
+
+Be illegible.
+
+---
+
+## What is it
+
+https://github.com/user-attachments/assets/d68aeccc-7794-434d-8dd3-7fc51610f5da
+
+A Chrome extension that quietly scrambles your search and browsing history by continuously searching random topics in the background and burrying your real interests in a sea of noise.
 
 When active, it opens tabs across your enabled platforms every ~60 seconds, browses like a human (scrolling, clicking into results, watching videos), then closes them silently.
 
@@ -8,7 +20,7 @@ When active, it opens tabs across your enabled platforms every ~60 seconds, brow
 
 ## How to install
 
-Chrome doesn't require any accounts, payment, or developer tools. Just follow these steps:
+https://github.com/user-attachments/assets/3b9d0fb2-63ca-4398-bc9c-2d31a1851143
 
 ### Step 1 — Download the extension
 
@@ -40,34 +52,18 @@ The extension icon (◈) will appear in your Chrome toolbar. If you don't see it
 
 Each platform requires you to be **logged in** in Chrome for the searches to register in your account history:
 
-| Platform | What it does |
-|---|---|
-| **Google** | Searches and clicks through to a result |
-| **YouTube** | Searches and plays a video |
-| **Reddit** | Searches, opens a post, scrolls comments |
+| Platform      | What it does                                |
+| ------------- | ------------------------------------------- |
+| **Google**    | Searches and clicks through to a result     |
+| **YouTube**   | Searches and plays a video                  |
+| **Reddit**    | Searches, opens a post, scrolls comments    |
 | **Instagram** | Browses explore results (must be logged in) |
-| **X** | Searches and scrolls slowly through tweets |
-| **TikTok** | Searches and plays a video |
-| **Amazon** | Searches and browses a product page |
-| **Pinterest** | Searches and opens a pin |
+| **X**         | Searches and scrolls slowly through tweets  |
+| **TikTok**    | Searches and plays a video                  |
+| **Amazon**    | Searches and browses a product page         |
+| **Pinterest** | Searches and opens a pin                    |
 
 Google and YouTube are enabled by default. Enable others only if you have an account.
-
----
-
-## Frequently asked questions
-
-**Will this slow down my computer?**
-Minimally. Tabs open in the background (not visible), run for 40–85 seconds, then close automatically. You won't notice them unless you look at your tab bar.
-
-**Can websites tell this is automated?**
-The extension behaves like a real browser session — it uses your actual login cookies, scrolls pages, clicks links, and watches videos. It's designed to look indistinguishable from normal browsing.
-
-**Does it work when Chrome is closed?**
-No. It runs while Chrome is open in the background. You don't need the window in front, but Chrome needs to be running.
-
-**How do I stop it?**
-Click the ◈ icon and toggle it off. Or just close Chrome.
 
 ---
 
