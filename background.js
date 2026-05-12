@@ -249,6 +249,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   if (msg.type === 'START') {
+    chrome.power.requestKeepAwake('system');
     chrome.storage.local.set({ enabled: true }).then(async () => {
       await runCycle();
       respond({ ok: true });
@@ -257,6 +258,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   }
 
   if (msg.type === 'STOP') {
+    chrome.power.releaseKeepAwake();
     (async () => {
       chrome.alarms.clearAll();
       const { noiseTabs = [] } = await chrome.storage.local.get('noiseTabs');
