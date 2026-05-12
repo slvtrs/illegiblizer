@@ -13,6 +13,8 @@ When active, it opens tabs across your enabled platforms every ~60 seconds, brow
 https://github.com/user-attachments/assets/d68aeccc-7794-434d-8dd3-7fc51610f5da
 
 > **Recommended Usage:** Activate the extension before going to bed each night. Left to run for 8 hours, it will add 480 dummy queries to your datatrails across all selected platforms, obscuring your waking searches and destroying the algorithm's model of you.
+> - **Mute your speakers.** YouTube occasionally ignores the extension's attempts to silence videos and plays audio anyway. The safest fallback to just mute your computer.
+> - **Turn your screen brightness down.** The extension opens and closes browser windows throughout the night. Dimming the display or letting the screen turn off will protect it.
 
 ---
 
@@ -65,13 +67,6 @@ Google and YouTube are enabled by default. Enable others only if you have an acc
 
 ---
 
-## Before you leave it running overnight
-
-- **Mute your computer.** YouTube occasionally ignores the extension's attempts to silence videos and plays audio anyway. The safest fallback to just mute your speakers.
-- **Turn your screen brightness down.** The extension opens and closes browser windows throughout the night. Dimming the display or letting the screen turn off will protect it.
-
----
-
 ## Updating
 
 When a new version is released:
@@ -87,6 +82,8 @@ Your settings are saved in Chrome and will carry over automatically.
 ## Uninstalling
 
 Go to **chrome://extensions**, find Illegiblizer, and click **Remove**. Then delete the folder you unzipped.
+
+---
 
 ## Contact
 
