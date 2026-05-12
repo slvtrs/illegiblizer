@@ -1,4 +1,4 @@
-# Illegiblizer
+# illegiblizer
 
 Become anti-predictable.
 
