@@ -65,6 +65,25 @@ Google and YouTube are enabled by default. Enable others only if you have an acc
 
 ---
 
+## Before you leave it running overnight
+
+- **Mute your computer.** YouTube occasionally ignores the extension's attempts to silence videos and plays audio anyway. The safest fallback to just mute your speakers.
+- **Turn your screen brightness down.** The extension opens and closes browser windows throughout the night. Dimming the display or letting the screen turn off will protect it.
+
+---
+
+## Updating
+
+When a new version is released:
+
+1. Download the new ZIP from this page and unzip it
+2. Replace the contents of your existing `illegiblizer-main` folder with the new files (or swap the whole folder)
+3. Go to **chrome://extensions**, find Illegiblizer, and click the refresh icon (↻)
+
+Your settings are saved in Chrome and will carry over automatically.
+
+---
+
 ## Uninstalling
 
 Go to **chrome://extensions**, find Illegiblizer, and click **Remove**. Then delete the folder you unzipped.
