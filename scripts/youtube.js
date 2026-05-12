@@ -12,18 +12,25 @@
     return null;
   };
 
+  const silenceVideo = (video) => { video.muted = true; video.volume = 0; };
+
   const forceMute = (video) => {
     video.defaultMuted = true;
-    video.muted  = true;
-    video.volume = 0;
-    // Re-mute if YouTube's player tries to restore volume
+    silenceVideo(video);
+    // Re-mute if YouTube's player restores volume or unmutes
     video.addEventListener('volumechange', () => {
-      if (!video.muted) { video.muted = true; video.volume = 0; }
+      if (!video.muted || video.volume > 0) silenceVideo(video);
     });
     video.play().catch(() => {
       chrome.runtime.sendMessage({ type: 'FOREGROUND_TAB' });
     });
   };
+
+  // YouTube's player initialises asynchronously and can override muted state
+  // after injection — re-silence at 1 s and 4 s as a safety net
+  for (const ms of [1000, 4000]) {
+    setTimeout(() => document.querySelectorAll('video').forEach(silenceVideo), ms);
+  }
 
   // Mute any video element the instant it appears
   const observer = new MutationObserver(() => {

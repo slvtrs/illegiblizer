@@ -114,13 +114,13 @@ async function scheduleNext() {
 // Polls until the tab reaches 'complete', times out, or disappears.
 // Polling via chrome.tabs.get() keeps the MV3 service worker alive —
 // setTimeout alone can silently stall when the worker is suspended.
-async function waitForTabComplete(tabId, timeout = 8000) {
+async function waitForTabComplete(tabId, timeout = 5000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     let tab;
     try { tab = await chrome.tabs.get(tabId); } catch { return; }
     if (tab.status === 'complete') return;
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 150));
   }
 }
 
@@ -257,11 +257,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   }
 
   if (msg.type === 'STOP') {
-    chrome.alarms.clearAll();
-    chrome.storage.local.set({ enabled: false, nextSearchAt: null, lastCycleAt: null }).then(() => {
+    (async () => {
+      chrome.alarms.clearAll();
+      const { noiseTabs = [] } = await chrome.storage.local.get('noiseTabs');
+      await Promise.all(noiseTabs.map(closeNoiseTab));
+      await chrome.storage.local.set({ enabled: false, nextSearchAt: null, lastCycleAt: null });
       updateIcon();
       respond({ ok: true });
-    });
+    })();
     return true;
   }
 
