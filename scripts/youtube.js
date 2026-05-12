@@ -2,70 +2,91 @@
   const delay = ms => new Promise(r => setTimeout(r, ms));
   const rand  = (a, b) => a + Math.random() * (b - a);
 
-  const waitFor = async (selector, timeout = 10000) => {
+  const proto    = HTMLMediaElement.prototype;
+  const setMuted  = Object.getOwnPropertyDescriptor(proto, 'muted').set;
+  const setVolume = Object.getOwnPropertyDescriptor(proto, 'volume').set;
+  const setDefaultMuted = Object.getOwnPropertyDescriptor(proto, 'defaultMuted')?.set;
+
+  // ── Prong 1: Prototype setter override ───────────────────────────────
+  // Runs in MAIN world — intercepts every future assignment to
+  // video.muted / video.volume / video.defaultMuted in YouTube's own JS.
+  Object.defineProperty(proto, 'muted',  {
+    ...Object.getOwnPropertyDescriptor(proto, 'muted'),
+    set(v) { setMuted.call(this, true); },
+  });
+  Object.defineProperty(proto, 'volume', {
+    ...Object.getOwnPropertyDescriptor(proto, 'volume'),
+    set(v) { setVolume.call(this, 0); },
+  });
+  if (setDefaultMuted) {
+    Object.defineProperty(proto, 'defaultMuted', {
+      ...Object.getOwnPropertyDescriptor(proto, 'defaultMuted'),
+      set(v) { setDefaultMuted.call(this, true); },
+    });
+  }
+
+  // ── Prong 2: Direct native-setter silencing ───────────────────────────
+  // Uses the captured original setters — bypasses any wrapper YouTube may
+  // have built around the prototype before our injection.
+  const silence = el => {
+    setMuted.call(el, true);
+    setVolume.call(el, 0);
+    if (setDefaultMuted) setDefaultMuted.call(el, true);
+  };
+  document.querySelectorAll('video').forEach(silence);
+
+  // ── Prong 3: MutationObserver — catch new video elements instantly ────
+  // Filters to added nodes only — avoids querySelectorAll on every one of
+  // YouTube's hundreds of DOM mutations per second.
+  new MutationObserver(mutations => {
+    for (const { addedNodes } of mutations) {
+      for (const node of addedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.tagName === 'VIDEO') silence(node);
+        node.querySelectorAll?.('video').forEach(silence);
+      }
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
+
+  // ── Prong 4: Simulate the "m" key via YouTube's own mute stack ────────
+  // Reads YouTube's mute-button title to determine internal player state —
+  // NOT video.muted, which we've already overridden and which can't see
+  // into YouTube's Web Audio API routing.
+  // Button title: "Mute (m)" = currently unmuted  |  "Unmute (m)" = muted
+  const pressM = () => {
+    const btn = document.querySelector('.ytp-mute-button');
+    if (!btn) return; // player not ready — skip rather than blindly toggling
+    const ytIsMuted = btn.title.includes('Unmute');
+    if (!ytIsMuted) {
+      const opts = { key: 'm', code: 'KeyM', keyCode: 77, which: 77, bubbles: true };
+      document.dispatchEvent(new KeyboardEvent('keydown', opts));
+      document.dispatchEvent(new KeyboardEvent('keyup',   opts));
+    }
+    // Always direct-silence regardless — belt-and-suspenders
+    document.querySelectorAll('video').forEach(silence);
+  };
+
+  // ── Click first search result ─────────────────────────────────────────
+  const waitFor = async (sel, timeout = 10000) => {
     const t0 = Date.now();
     while (Date.now() - t0 < timeout) {
-      const el = document.querySelector(selector);
+      const el = document.querySelector(sel);
       if (el) return el;
       await delay(300);
     }
     return null;
   };
 
-  // Grab the real native setters before defining our interceptors
-  const proto     = HTMLMediaElement.prototype;
-  const setMuted  = Object.getOwnPropertyDescriptor(proto, 'muted').set;
-  const setVolume = Object.getOwnPropertyDescriptor(proto, 'volume').set;
-
-  const silenceVideo = (video) => {
-    // Actually mute via the native setter
-    setMuted.call(video, true);
-    setVolume.call(video, 0);
-    // Override the instance's own property so any future JS assignment
-    // (including YouTube's player) is silently redirected back to silence
-    try {
-      Object.defineProperty(video, 'muted',  { get: () => true, set: () => setMuted.call(video, true),  configurable: true });
-      Object.defineProperty(video, 'volume', { get: () => 0,    set: () => setVolume.call(video, 0),    configurable: true });
-    } catch (_) {}
-  };
-
-  const forceMute = (video) => {
-    video.defaultMuted = true;
-    silenceVideo(video);
-    video.play().catch(() => {
-      chrome.runtime.sendMessage({ type: 'FOREGROUND_TAB' });
-    });
-  };
-
-  // Belt-and-suspenders: re-silence at 1 s and 4 s for late player init
-  for (const ms of [1000, 4000]) {
-    setTimeout(() => document.querySelectorAll('video').forEach(silenceVideo), ms);
-  }
-
-  // Mute any video element the instant it appears
-  const observer = new MutationObserver(() => {
-    document.querySelectorAll('video').forEach(v => {
-      if (!v.dataset.igMuted) { v.dataset.igMuted = '1'; forceMute(v); }
-    });
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-
-  // Also catch anything already on the page
-  document.querySelectorAll('video').forEach(v => {
-    v.dataset.igMuted = '1';
-    forceMute(v);
-  });
-
-  // Click first search result to navigate to watch page
   await waitFor('ytd-video-renderer');
   await delay(rand(1200, 2500));
-
   const link = await waitFor('ytd-video-renderer a#video-title');
   if (!link) return;
   await delay(rand(500, 1200));
   link.click();
 
-  // Keep observer running through SPA navigation so the watch page video is caught
-  await delay(15000);
-  observer.disconnect();
+  // Timers are now relative to the click (= watch-page navigation),
+  // not to injection time — so they fire as the player is actually loading.
+  for (const ms of [1000, 2500, 4000, 6500, 10000]) {
+    setTimeout(pressM, ms);
+  }
 })();

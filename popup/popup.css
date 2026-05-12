@@ -202,6 +202,33 @@ header {
 .platform-icon.pinterest { color: var(--pinterest); }
 
 
+/* ── Recent icon stack ───────────────────── */
+.recent-icons {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.recent-icons .recent-platform {
+  width: 17px;
+  height: 17px;
+  min-width: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.recent-icons .recent-platform:not(:first-child) {
+  margin-left: -5px;
+}
+
 /* ── Recent list ─────────────────────────── */
 .count-badge {
   font-size: 11px;

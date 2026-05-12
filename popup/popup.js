@@ -1,8 +1,8 @@
 const $ = (id) => document.getElementById(id);
 
 const PLATFORM_ABBR = {
-  google: 'G', youtube: 'YT', reddit: 'R',
-  instagram: 'IG', x: 'X', tiktok: 'TT', amazon: 'A', pinterest: 'P',
+  google: 'G', youtube: 'Y', reddit: 'R',
+  instagram: 'I', x: 'X', tiktok: 'T', amazon: 'A', pinterest: 'P',
 };
 
 const ALL_PLATFORMS = ['google', 'youtube', 'reddit', 'instagram', 'x', 'tiktok', 'amazon', 'pinterest'];
@@ -68,13 +68,27 @@ function renderRecent(recentSearches, searchCount) {
     return;
   }
 
-  list.innerHTML = recentSearches.map(({ term, platform, time }) => `
-    <li class="recent-item">
-      <span class="recent-platform ${platform}">${PLATFORM_ABBR[platform] || '?'}</span>
-      <span class="recent-term" title="${term}">${term}</span>
-      <span class="recent-time">${timeAgo(time)}</span>
-    </li>
-  `).join('');
+  // Group by term, preserving order of first occurrence
+  const groups = new Map();
+  for (const { term, platform, time } of recentSearches) {
+    if (!groups.has(term)) groups.set(term, { term, platforms: [], time });
+    const g = groups.get(term);
+    if (!g.platforms.includes(platform)) g.platforms.push(platform);
+    if (time > g.time) g.time = time;
+  }
+
+  list.innerHTML = [...groups.values()].map(({ term, platforms, time }) => {
+    const icons = platforms.map(p =>
+      `<span class="recent-platform ${p}" title="${p}">${PLATFORM_ABBR[p] || '?'}</span>`
+    ).join('');
+    return `
+      <li class="recent-item">
+        <div class="recent-icons">${icons}</div>
+        <span class="recent-term" title="${term}">${term}</span>
+        <span class="recent-time">${timeAgo(time)}</span>
+      </li>
+    `;
+  }).join('');
 }
 
 function applySettings(settings) {

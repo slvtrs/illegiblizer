@@ -1,16 +1,33 @@
 const ALARM_NAME = 'illegiblizer-cycle';
 const enc = encodeURIComponent;
 
+// engage: true  → inject script and hold for 60/numPlatforms seconds before opening next
+// engage: false → open window (search registers on page load) and move on immediately
 const PLATFORMS = {
-  google:    { url: q => `https://www.google.com/search?q=${enc(q)}`,                    script: 'scripts/google.js',    dwell: [50, 80] },
-  youtube:   { url: q => `https://www.youtube.com/results?search_query=${enc(q)}`,        script: 'scripts/youtube.js',   dwell: [55, 85] },
-  reddit:    { url: q => `https://www.reddit.com/search/?q=${enc(q)}`,                    script: 'scripts/reddit.js',    dwell: [45, 75] },
-  instagram: { url: q => `https://www.instagram.com/explore/search/keyword/?q=${enc(q)}`, script: 'scripts/instagram.js', dwell: [40, 65] },
-  x:         { url: q => `https://x.com/search?q=${enc(q)}&src=typed_query&f=live`,       script: 'scripts/x.js',         dwell: [40, 65] },
-  tiktok:    { url: q => `https://www.tiktok.com/search?q=${enc(q)}`,                     script: 'scripts/tiktok.js',    dwell: [55, 85] },
-  amazon:    { url: q => `https://www.amazon.com/s?k=${enc(q)}`,                          script: 'scripts/amazon.js',    dwell: [45, 75] },
-  pinterest: { url: q => `https://www.pinterest.com/search/pins/?q=${enc(q)}`,            script: 'scripts/pinterest.js', dwell: [40, 65] },
+  google:    { url: q => `https://www.google.com/search?q=${enc(q)}`,                    script: 'scripts/google.js',    dwell: [50, 80], engage: true  },
+  youtube:   { url: q => `https://www.youtube.com/results?search_query=${enc(q)}`,        script: 'scripts/youtube.js',   dwell: [55, 85], engage: true  },
+  reddit:    { url: q => `https://www.reddit.com/search/?q=${enc(q)}`,                    script: 'scripts/reddit.js',    dwell: [45, 75], engage: true  },
+  instagram: { url: q => `https://www.instagram.com/explore/search/keyword/?q=${enc(q)}`, script: 'scripts/instagram.js', dwell: [40, 65], engage: false },
+  x:         { url: q => `https://x.com/search?q=${enc(q)}&src=typed_query&f=live`,       script: 'scripts/x.js',         dwell: [40, 65], engage: false },
+  tiktok:    { url: q => `https://www.tiktok.com/search?q=${enc(q)}`,                     script: 'scripts/tiktok.js',    dwell: [55, 85], engage: true  },
+  amazon:    { url: q => `https://www.amazon.com/s?k=${enc(q)}`,                          script: 'scripts/amazon.js',    dwell: [45, 75], engage: true  },
+  pinterest: { url: q => `https://www.pinterest.com/search/pins/?q=${enc(q)}`,            script: 'scripts/pinterest.js', dwell: [40, 65], engage: false },
 };
+
+// Tile windows so successive popups don't stack on top of each other.
+// Assumes a reasonable screen — positions wrap if more than 6 windows are open.
+const WINDOW_POSITIONS = [
+  { left:    0, top:   40 },
+  { left:  500, top:   40 },
+  { left: 1000, top:   40 },
+  { left:    0, top:  700 },
+  { left:  500, top:  700 },
+  { left: 1000, top:  700 },
+];
+
+// Global slot counter — increments across cycles so overlapping cycles
+// place their windows at different positions.
+let windowSlot = 0;
 
 const DEFAULT_PLATFORM_SETTINGS = {
   google: true, youtube: true, reddit: false,
@@ -111,141 +128,11 @@ async function fetchRandomTopic() {
 // ── Scheduling ────────────────────────────────────────────────
 
 async function scheduleNext() {
-  await chrome.alarms.clearAll();
+  await chrome.alarms.clear(ALARM_NAME);
   const delayMs = 60000 + Math.random() * 10000;
   const now     = Date.now();
   await chrome.alarms.create(ALARM_NAME, { delayInMinutes: delayMs / 60000 });
   await chrome.storage.local.set({ nextSearchAt: now + delayMs, lastCycleAt: now });
-}
-
-// ── Tab readiness ─────────────────────────────────────────────
-
-// Resolves when the tab completes, is closed, or times out.
-// Combines event listeners (which wake the service worker instantly) with a
-// polling loop (which keeps the service worker alive between events so the
-// timeout actually fires instead of stalling indefinitely).
-function waitForTabComplete(tabId, timeout = 5000) {
-  return new Promise(resolve => {
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      chrome.tabs.onUpdated.removeListener(onUpdated);
-      chrome.tabs.onRemoved.removeListener(onRemoved);
-      resolve();
-    };
-
-    const onUpdated = (id, info) => { if (id === tabId && info.status === 'complete') finish(); };
-    const onRemoved = (id)       => { if (id === tabId) finish(); };
-
-    chrome.tabs.onUpdated.addListener(onUpdated);
-    chrome.tabs.onRemoved.addListener(onRemoved);
-
-    // Polling loop: keeps the service worker alive AND enforces the timeout
-    (async () => {
-      const deadline = Date.now() + timeout;
-      while (!done && Date.now() < deadline) {
-        let tab;
-        try { tab = await chrome.tabs.get(tabId); } catch { finish(); return; }
-        if (tab.status === 'complete') { finish(); return; }
-        await new Promise(r => setTimeout(r, 150));
-      }
-      finish();
-    })();
-  });
-}
-
-// ── Main cycle ────────────────────────────────────────────────
-
-let currentCycleId = 0;
-
-async function runCycle({ force = false } = {}) {
-  const cycleId = ++currentCycleId;
-  const stored = await chrome.storage.local.get({
-    enabled: false,
-    platforms: DEFAULT_PLATFORM_SETTINGS,
-    searchCount: 0,
-    recentSearches: [],
-  });
-
-  if (!stored.enabled && !force) return;
-
-  const enabledPlatforms = Object.entries(stored.platforms)
-    .filter(([, on]) => on)
-    .map(([name]) => name)
-    .filter(name => PLATFORMS[name]);
-
-  if (enabledPlatforms.length === 0) return;
-
-  // Capture the user's current window before touching anything
-  const userWindow = await chrome.windows.getLastFocused({ windowTypes: ['normal'] }).catch(() => null);
-
-  const term = await fetchRandomTopic();
-
-  await scheduleNext();
-  startIconUpdates();
-  await closeOverdueTabs();
-
-  // Open one platform at a time: create window → focus → wait for load →
-  // inject script → next platform. Each tab gets full rendering rights
-  // before we move on. All tabs then dwell in the background in parallel.
-  const openedTabs  = [];
-  const tabWindows  = {};
-  const tabCloseTimes = {};
-
-  for (const platform of enabledPlatforms) {
-    if (cycleId !== currentCycleId) return; // STOP was called — abort
-
-    const config = PLATFORMS[platform];
-    let tabId, windowId;
-
-    try {
-      const win = await chrome.windows.create({
-        url:     config.url(term),
-        type:    'popup',
-        focused: true,   // focused from the start so it renders immediately
-        width:   480,
-        height:  640,
-      });
-      tabId    = win.tabs[0].id;
-      windowId = win.id;
-    } catch (_) { continue; }
-
-    // Wait for the page to finish loading
-    await waitForTabComplete(tabId);
-
-    // Inject the platform engagement script
-    try {
-      await chrome.scripting.executeScript({ target: { tabId }, files: [config.script] });
-    } catch (_) {}
-
-    // Brief pause so the script's first actions (scroll, click) can fire
-    await new Promise(r => setTimeout(r, 400));
-
-    // Schedule this tab's closure — dwell runs in the background from here
-    const [minDwell, maxDwell] = config.dwell;
-    const dwellMs = (minDwell + Math.random() * (maxDwell - minDwell)) * 1000;
-    tabCloseTimes[tabId] = Date.now() + dwellMs;
-    setTimeout(() => closeNoiseTab(tabId), dwellMs);
-
-    openedTabs.push({ tabId, windowId, platform });
-    tabWindows[tabId] = windowId;
-  }
-
-  // Return focus to user's original window now that all tabs are initialised
-  if (userWindow) {
-    try { await chrome.windows.update(userWindow.id, { focused: true }); } catch (_) {}
-  }
-
-  const newSearches = openedTabs.map(({ platform }) => ({ term, platform, time: Date.now() }));
-
-  await chrome.storage.local.set({
-    tabWindows,
-    tabCloseTimes,
-    noiseTabs:      openedTabs.map(t => t.tabId),
-    searchCount:    (stored.searchCount || 0) + openedTabs.length,
-    recentSearches: [...newSearches, ...(stored.recentSearches || [])].slice(0, 20),
-  });
 }
 
 // ── Tab cleanup ───────────────────────────────────────────────
@@ -277,6 +164,129 @@ async function closeOverdueTabs() {
   await Promise.all(overdue.map(closeNoiseTab));
 }
 
+// ── Main cycle ────────────────────────────────────────────────
+// For engage platforms: injects immediately, then waits 60/numPlatforms seconds
+// before opening the next window. For non-engage platforms: opens and moves on
+// immediately (search registers on page load alone).
+
+// Incremented only by STOP — lets multiple cycles overlap freely while still
+// giving STOP a single lever to abort every in-flight loop at once.
+let runGeneration = 0;
+
+async function runCycle({ force = false } = {}) {
+  const myGeneration = runGeneration;
+
+  const { enabled, platforms: platformSettings } = await chrome.storage.local.get({
+    enabled: false,
+    platforms: DEFAULT_PLATFORM_SETTINGS,
+  });
+
+  if (!enabled && !force) return;
+
+  const enabledPlatforms = Object.entries(platformSettings)
+    .filter(([, on]) => on)
+    .map(([name]) => name)
+    .filter(name => PLATFORMS[name]);
+
+  if (enabledPlatforms.length === 0) return;
+
+  const userWindow = await chrome.windows.getLastFocused({ windowTypes: ['normal'] }).catch(() => null);
+  const term = await fetchRandomTopic();
+
+  await scheduleNext();
+  startIconUpdates();
+  await closeOverdueTabs();
+
+  // Time budget per engaging platform: split the 60-second cycle evenly.
+  const engageSecs = Math.max(5, Math.floor(60 / enabledPlatforms.length));
+
+  // Ping storage every 5 s to keep the service worker alive during engage waits.
+  const keepAlive = setInterval(() => chrome.storage.local.get('_ka'), 5000);
+  const t0 = Date.now();
+  const ts = () => `+${((Date.now() - t0) / 1000).toFixed(1)}s`;
+
+  try {
+    for (const platform of enabledPlatforms) {
+      if (runGeneration !== myGeneration) return; // STOP was called
+
+      const config = PLATFORMS[platform];
+      const pos    = WINDOW_POSITIONS[windowSlot++ % WINDOW_POSITIONS.length];
+      let tabId, windowId;
+
+      console.log(`[illeg ${ts()}] opening: ${platform} (engage=${config.engage}, pos=${pos.left},${pos.top})`);
+      try {
+        const win = await chrome.windows.create({
+          url:     config.url(term),
+          type:    'popup',
+          focused: true,
+          width:   480,
+          height:  640,
+          left:    pos.left,
+          top:     pos.top,
+        });
+        tabId    = win.tabs[0].id;
+        windowId = win.id;
+      } catch (_) { continue; }
+
+      // Register immediately so the popup updates in real-time and STOP can
+      // close this window even while we're still iterating.
+      {
+        const { tabWindows: tw = {}, noiseTabs: n = [], recentSearches: r = [], searchCount: c = 0 } =
+          await chrome.storage.local.get(['tabWindows', 'noiseTabs', 'recentSearches', 'searchCount']);
+        await chrome.storage.local.set({
+          tabWindows:     { ...tw, [tabId]: windowId },
+          noiseTabs:      [...new Set([...n, tabId])],
+          searchCount:    c + 1,
+          recentSearches: [{ term, platform, time: Date.now() }, ...r].slice(0, 20),
+        });
+      }
+
+      if (config.engage) {
+        // Inject after 5 s (page needs time to reach a scriptable state).
+        // Not awaited — script has its own internal waitFor logic.
+        setTimeout(() => {
+          console.log(`[illeg ${ts()}] injecting: ${platform}`);
+          chrome.scripting.executeScript({
+            target: { tabId },
+            files:  [config.script],
+            world:  platform === 'youtube' ? 'MAIN' : 'ISOLATED',
+          }).then(() => console.log(`[illeg ${ts()}] inject done: ${platform}`))
+            .catch(e => console.log(`[illeg ${ts()}] inject failed: ${platform}: ${e.message}`));
+        }, 5000);
+
+        // Hold for the engagement budget before opening the next window.
+        console.log(`[illeg ${ts()}] engaging ${platform} for ${engageSecs} s`);
+        await new Promise(r => setTimeout(r, engageSecs * 1000));
+        if (runGeneration !== myGeneration) return;
+        console.log(`[illeg ${ts()}] done: ${platform}`);
+      } else {
+        // Non-engage: search registers on page load. Move on immediately,
+        // but still inject in the background for extra realism.
+        console.log(`[illeg ${ts()}] skipping engage wait: ${platform}`);
+        setTimeout(() => {
+          chrome.scripting.executeScript({
+            target: { tabId },
+            files:  [config.script],
+            world:  'ISOLATED',
+          }).catch(() => {});
+        }, 5000);
+      }
+
+      // Schedule this tab's closure.
+      const [minDwell, maxDwell] = config.dwell;
+      const dwellMs = (minDwell + Math.random() * (maxDwell - minDwell)) * 1000;
+      setTimeout(() => closeNoiseTab(tabId), dwellMs);
+      const { tabCloseTimes: tc = {} } = await chrome.storage.local.get('tabCloseTimes');
+      await chrome.storage.local.set({ tabCloseTimes: { ...tc, [tabId]: Date.now() + dwellMs } });
+    }
+  } finally {
+    clearInterval(keepAlive);
+  }
+
+  if (runGeneration !== myGeneration) return;
+  if (userWindow) try { await chrome.windows.update(userWindow.id, { focused: true }); } catch (_) {}
+}
+
 // ── Alarm + message handlers ──────────────────────────────────
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -286,18 +296,18 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   if (msg.type === 'START') {
     chrome.power.requestKeepAwake('system');
-    chrome.storage.local.set({ enabled: true }).then(async () => {
-      await runCycle();
+    chrome.storage.local.set({ enabled: true }).then(() => {
+      runCycle(); // fire and forget — cycles can now overlap
       respond({ ok: true });
     });
     return true;
   }
 
   if (msg.type === 'STOP') {
-    currentCycleId++; // invalidates any in-progress runCycle loop
+    runGeneration++;                  // abort every in-progress runCycle loop
     chrome.power.releaseKeepAwake();
     (async () => {
-      chrome.alarms.clearAll();
+      await chrome.alarms.clearAll();
       const { noiseTabs = [] } = await chrome.storage.local.get('noiseTabs');
       await Promise.all(noiseTabs.map(closeNoiseTab));
       await chrome.storage.local.set({ enabled: false, nextSearchAt: null, lastCycleAt: null });
@@ -308,8 +318,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   }
 
   if (msg.type === 'SEARCH_NOW') {
-    runCycle({ force: true }).then(() => respond({ ok: true }));
-    return true;
+    runCycle({ force: true });
+    respond({ ok: true });
   }
 
   if (msg.type === 'UPDATE_SETTINGS') {
