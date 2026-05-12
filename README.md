@@ -10,11 +10,13 @@ Be illegible.
 
 ## What is it
 
-https://github.com/user-attachments/assets/d68aeccc-7794-434d-8dd3-7fc51610f5da
-
-A Chrome extension that quietly scrambles your search and browsing history by continuously searching random topics in the background and burrying your real interests in a sea of noise.
+A Chrome extension that quietly scrambles your search and browsing history by continuously searching random topics in the background and burrying your real behavior in a sea of noise.
 
 When active, it opens tabs across your enabled platforms every ~60 seconds, browses like a human (scrolling, clicking into results, watching videos), then closes them silently.
+
+https://github.com/user-attachments/assets/d68aeccc-7794-434d-8dd3-7fc51610f5da
+
+> **Recommended Usage:** Activate the extension before going to bed each night. Left to run for 8 hours, it will add 480 dummy queries to your datatrails across all selected platforms, obscuring your waking searches and destroying the algorithm's model of you.
 
 ---
 
@@ -70,3 +72,9 @@ Google and YouTube are enabled by default. Enable others only if you have an acc
 ## Uninstalling
 
 Go to **chrome://extensions**, find Illegiblizer, and click **Remove**. Then delete the folder you unzipped.
+
+## Contact
+
+Suggestions? Questions? Complaints?
+
+I'd love to hear from you: [human@slvtrs.com](mailto:human@slvtrs.com)
