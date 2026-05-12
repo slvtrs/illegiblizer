@@ -1,10 +1,6 @@
 # Illegiblizer
 
-Be nonquantifiable.
-
-Be unpredictable.
-
-Be illegible.
+Become anti-predictable.
 
 ---
 
