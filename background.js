@@ -237,7 +237,7 @@ async function runCycle({ force = false } = {}) {
           tabWindows:     { ...tw, [tabId]: windowId },
           noiseTabs:      [...new Set([...n, tabId])],
           searchCount:    c + 1,
-          recentSearches: [{ term, platform, time: Date.now() }, ...r].slice(0, 20),
+          recentSearches: [{ term, platform, time: Date.now() }, ...r].slice(0, 2000),
         });
       }
 
