@@ -231,12 +231,13 @@ async function runCycle({ force = false } = {}) {
       // Register immediately so the popup updates in real-time and STOP can
       // close this window even while we're still iterating.
       {
-        const { tabWindows: tw = {}, noiseTabs: n = [], recentSearches: r = [], searchCount: c = 0 } =
-          await chrome.storage.local.get(['tabWindows', 'noiseTabs', 'recentSearches', 'searchCount']);
+        const { tabWindows: tw = {}, noiseTabs: n = [], recentSearches: r = [], searchCount: c = 0, sessionCount: sc = 0 } =
+          await chrome.storage.local.get(['tabWindows', 'noiseTabs', 'recentSearches', 'searchCount', 'sessionCount']);
         await chrome.storage.local.set({
           tabWindows:     { ...tw, [tabId]: windowId },
           noiseTabs:      [...new Set([...n, tabId])],
           searchCount:    c + 1,
+          sessionCount:   sc + 1,
           recentSearches: [{ term, platform, time: Date.now() }, ...r].slice(0, 2000),
         });
       }
@@ -296,7 +297,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   if (msg.type === 'START') {
     chrome.power.requestKeepAwake('system');
-    chrome.storage.local.set({ enabled: true }).then(() => {
+    chrome.storage.local.set({ enabled: true, sessionCount: 0 }).then(() => {
       runCycle(); // fire and forget — cycles can now overlap
       respond({ ok: true });
     });
@@ -308,9 +309,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     chrome.power.releaseKeepAwake();
     (async () => {
       await chrome.alarms.clearAll();
-      const { noiseTabs = [] } = await chrome.storage.local.get('noiseTabs');
+      const { noiseTabs = [], sessionCount = 0 } = await chrome.storage.local.get(['noiseTabs', 'sessionCount']);
       await Promise.all(noiseTabs.map(closeNoiseTab));
-      await chrome.storage.local.set({ enabled: false, nextSearchAt: null, lastCycleAt: null });
+      await chrome.storage.local.set({
+        enabled: false, nextSearchAt: null, lastCycleAt: null,
+        lastSessionCount: sessionCount, sessionCount: 0,
+      });
       updateIcon();
       respond({ ok: true });
     })();

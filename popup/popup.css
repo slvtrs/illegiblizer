@@ -136,6 +136,13 @@ header {
   color: var(--text-dim);
 }
 
+.status-session {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Sections ────────────────────────────── */
 .section {
   display: flex;

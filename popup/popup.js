@@ -28,18 +28,21 @@ function timeAgo(ts) {
 
 // ── State → UI ────────────────────────────────────────────────
 
-function renderStatus(enabled, nextSearchAt) {
+function renderStatus(enabled, nextSearchAt, sessionCount, lastSessionCount) {
   const card = $('statusCard');
   const label = $('statusLabel');
   const sub = $('statusSub');
 
+  const session = $('statusSession');
   if (!enabled) {
     card.classList.remove('active');
     label.textContent = 'Paused';
     sub.textContent = 'Enable to start scrambling';
+    session.textContent = lastSessionCount > 0 ? `${lastSessionCount} queries last session` : '';
     clearInterval(countdownTimer);
     return;
   }
+  session.textContent = `${sessionCount} quer${sessionCount === 1 ? 'y' : 'ies'} this session`;
 
   card.classList.add('active');
   label.textContent = 'Active';
@@ -59,8 +62,10 @@ function renderStatus(enabled, nextSearchAt) {
   }, 500);
 }
 
-function renderRecent(recentSearches, searchCount) {
-  $('countBadge').textContent = `${searchCount} today`;
+function renderRecent(recentSearches) {
+  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const todayCount = (recentSearches || []).filter(s => s.time >= dayStart.getTime()).length;
+  $('countBadge').textContent = `${todayCount} today`;
 
   const list = $('recentList');
   if (!recentSearches || recentSearches.length === 0) {
@@ -92,17 +97,17 @@ function renderRecent(recentSearches, searchCount) {
 }
 
 function applySettings(settings) {
-  const { enabled, platforms, searchCount, recentSearches, nextSearchAt } = settings;
+  const { enabled, platforms, searchCount, recentSearches, nextSearchAt, sessionCount, lastSessionCount } = settings;
 
   $('toggle').checked = !!enabled;
-  renderStatus(!!enabled, nextSearchAt);
+  renderStatus(!!enabled, nextSearchAt, sessionCount ?? 0, lastSessionCount ?? 0);
 
   const defaults = { google: true, youtube: true, reddit: false, instagram: false, x: false, tiktok: false, amazon: false, pinterest: false };
   for (const p of ALL_PLATFORMS) {
     $(`platform-${p}`).checked = platforms?.[p] ?? defaults[p];
   }
 
-  renderRecent(recentSearches ?? [], searchCount ?? 0);
+  renderRecent(recentSearches ?? []);
 }
 
 // ── Load ──────────────────────────────────────────────────────
@@ -114,6 +119,8 @@ async function loadState() {
     searchCount: 0,
     recentSearches: [],
     nextSearchAt: null,
+    sessionCount: 0,
+    lastSessionCount: 0,
   });
   applySettings(settings);
 }
@@ -156,7 +163,7 @@ $('clearCount').addEventListener('click', async () => {
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
 
-  const watched = ['enabled', 'nextSearchAt', 'recentSearches', 'searchCount'];
+  const watched = ['enabled', 'nextSearchAt', 'recentSearches', 'searchCount', 'sessionCount', 'lastSessionCount'];
   if (watched.some((k) => k in changes)) loadState();
 });
 
