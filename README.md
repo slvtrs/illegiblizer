@@ -2,6 +2,8 @@
 
 Become anti-predictable.
 
+**[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/ijmljkjgacimebohmpmocjiokmeenaao)**
+
 ---
 
 ## What is it
